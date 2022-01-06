@@ -67,6 +67,7 @@ class Trainer:
         train_data_loader: DataLoader,
         eval_data_loader: DataLoader,
         max_epochs: int,
+        device: torch.device,
         work_dir: str = "work_dir",
         max_num_checkpoints: int = None,
         eval_period: int = None,      # (iter-based)  如果没有指定的话，就在每个epoch后do_eval
@@ -105,7 +106,8 @@ class Trainer:
             warmup_factor (float): LR used at the beginning of warmup equals to
                 ``warmup_factor * initial_lr``. Defaults to 0.001.
         """
-        self.model = model
+        self.device = device
+        self.model = model.to(device)
         self.optimizer = optimizer
         # convert epoch-based scheduler to iteration-based scheduler
         self.lr_scheduler = LRWarmupScheduler(
@@ -130,9 +132,12 @@ class Trainer:
         self._log_period = log_period
         self._clip_grad_norm = clip_grad_norm
         self._enable_amp = enable_amp
+
+        self._best_monitor = 0 #记录最优指标，用于checkpoint_hook 做比较
         self._early_stop_flag = False
         self._early_stop_patience = early_stop_patience
         self._early_stop_monitor = early_stop_monitor
+
 
         self.register_hooks(self._build_default_hooks())
         logger.info(f"Registered default hooks: {self.registered_hook_names}")  # TODO 是因为模块被调用没有执行吗
@@ -223,22 +228,25 @@ class Trainer:
             h.trainer = weakref.proxy(self)
             # We always keep :class:`LoggerHook` as the last hook to avoid losing any records
             # that should have been logged. The order of other hooks remains the same.
-            if self._hooks and isinstance(self._hooks[-1], LoggerHook):
-                self._hooks.insert(len(self._hooks) - 1, h)
-            else:
-                self._hooks.append(h)
+            
+            # if self._hooks and isinstance(self._hooks[-1], LoggerHook):
+            #     self._hooks.insert(len(self._hooks) - 1, h)
+            # else:
+            #     self._hooks.append(h)
+
+            self._hooks.append(h)
 
     def _call_hooks(self, stage: str) -> None:
         for h in self._hooks:
             getattr(h, stage)()
 
-    def _build_default_hooks(self) -> List[HookBase]:  # 顺序是有讲究的
+    def _build_default_hooks(self) -> List[HookBase]:  # 顺序是有讲究的，先eval才会有指标数值，early_stop根据指标进行早停，checkpoint最后再保存
         default_hooks =  [
             EvalHook(self._eval_period),
             EarlyStopHook(self._early_stop_monitor, self._early_stop_patience),
-            CheckpointerHook(self._checkpoint_period, self._max_num_checkpoints),
             LoggerHook(self._log_period, tb_log_dir=self.tb_log_dir),
-            
+            CheckpointerHook(self._checkpoint_period, self._max_num_checkpoints),
+             
         ]
         return default_hooks
 

@@ -76,6 +76,7 @@ class EvalHook(HookBase):
         with torch.no_grad():
             for i, batch in enumerate(self.trainer.eval_data_loader):
                 inputs, target = batch
+                inputs, target = inputs.to(self.trainer.device), target.to(self.trainer.device)
                 output = self.trainer.model(inputs)
                 eval_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
                 pred = output.argmax(dim=1, keepdim=True) 

@@ -98,7 +98,6 @@ class HookBase:
         return self.trainer.inner_iter == self.trainer.epoch_len - 1
 
     def is_eval_iter(self) -> bool:
-        if self.trainer._eval_period:
-            return self.every_n_inner_iters(self.trainer._eval_period)
-        else:
-            return self.every_n_epochs(1)
+        return self.trainer._eval_period and self.every_n_inner_iters(self.trainer._eval_period)
+           
+ 

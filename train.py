@@ -8,7 +8,9 @@ import torch.nn.functional as F
 import argparse
 import time
 
-from cpu.hooks import EvalHook
+from cpu import set_random_seed
+
+set_random_seed(10)
 
 """
         model = ...
@@ -45,7 +47,7 @@ args = parser.parse_args()
 
 
 
-
+device = torch.device("cuda:1")
 model = Net()
 optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
@@ -77,6 +79,7 @@ class MyTrainer(Trainer):
 
         start = time.perf_counter()
         data, target = next(self._data_iter_train)
+        data, target = data.to(self.device), target.to(self.device)
 
         data_time = time.perf_counter() - start
 
@@ -94,7 +97,8 @@ class MyTrainer(Trainer):
         # 记录任意指标，全都会被写入tensorboard，部分会被写入console
         self.log(self.cur_iter, lr=lr_this_iter, smooth=False)
         self.log(self.cur_iter, train_loss=loss.detach().cpu().item())
-  
+
+
 
 
 trainer = MyTrainer(model = model, 
@@ -106,7 +110,8 @@ trainer = MyTrainer(model = model,
                     max_num_checkpoints=3,
                     eval_period = 200,
                     early_stop_patience = 2,
-                    early_stop_monitor = "eval_acc"
+                    early_stop_monitor = "eval_acc",
+                    device = device, 
                     )  
 
 

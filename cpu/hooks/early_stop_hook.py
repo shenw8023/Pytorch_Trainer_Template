@@ -14,7 +14,7 @@ class EarlyStopHook(HookBase):
 
     
     def after_iter(self): # 每次iter后记录该epoch有没有提升
-        if self.trainer._eval_period and self.every_n_inner_iters(self.trainer._eval_period):
+        if self.is_eval_iter():
             cur_monitor = self.metric_storage[self.monitor].latest 
             if cur_monitor > self.best_monitor:
                 self.last_improve_epoch = self.cur_epoch
